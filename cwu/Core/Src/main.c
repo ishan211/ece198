@@ -1,166 +1,91 @@
 /* USER CODE BEGIN Header */
-/**
-  ******************************************************************************
-  * @file           : main.c
-  * @brief          : Main program body
-  ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2024 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
-  ******************************************************************************
-  */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "stm32f4xx_hal.h"
-#define KEYPAD_ROWS 4
-#define KEYPAD_COLS 4
+
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-GPIO_TypeDef* ROW_PORT[KEYPAD_ROWS] = {GPIOB, GPIOB, GPIOB, GPIOB};  // Rows connected to GPIOB
-uint16_t ROW_PIN[KEYPAD_ROWS] = {GPIO_PIN_0, GPIO_PIN_1, GPIO_PIN_2, GPIO_PIN_3};  // Pins for rows
-GPIO_TypeDef* COL_PORT[KEYPAD_COLS] = {GPIOB, GPIOB, GPIOB, GPIOB};  // Columns connected to GPIOB
-uint16_t COL_PIN[KEYPAD_COLS] = {GPIO_PIN_4, GPIO_PIN_5, GPIO_PIN_6, GPIO_PIN_7};  // Pins for columns
+#include <stdio.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
-UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
-
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-char keys[KEYPAD_ROWS][KEYPAD_COLS] = {
+const uint16_t KEYPAD_ROWS[] = {GPIO_PIN_0, GPIO_PIN_1, GPIO_PIN_8, GPIO_PIN_9};
+const uint16_t KEYPAD_COLS[] = {GPIO_PIN_4, GPIO_PIN_5, GPIO_PIN_6, GPIO_PIN_7};
+#define KEYPAD_ROW_PORT GPIOA
+#define KEYPAD_COL_PORT GPIOA
+
+char keypad[4][4] = {
     {'1', '2', '3', 'A'},
     {'4', '5', '6', 'B'},
     {'7', '8', '9', 'C'},
     {'*', '0', '#', 'D'}
 };
-void Keypad_Init(void) {
+
+void setupKeypad() {
     GPIO_InitTypeDef GPIO_InitStruct = {0};
 
-    // Initialize the row pins as outputs (driving the rows)
-    for (int i = 0; i < KEYPAD_ROWS; i++) {
-        GPIO_InitStruct.Pin = ROW_PIN[i];
-        GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-        GPIO_InitStruct.Pull = GPIO_NOPULL;
-        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-        HAL_GPIO_Init(ROW_PORT[i], &GPIO_InitStruct);
+    // Configure rows as input with pull-up
+    GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
+    for (int i = 0; i < 4; i++) {
+        GPIO_InitStruct.Pin = KEYPAD_ROWS[i];
+        HAL_GPIO_Init(KEYPAD_ROW_PORT, &GPIO_InitStruct);
     }
 
-    // Initialize the column pins as inputs (reading the columns)
-    for (int i = 0; i < KEYPAD_COLS; i++) {
-        GPIO_InitStruct.Pin = COL_PIN[i];
-        GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-        GPIO_InitStruct.Pull = GPIO_PULLUP;  // Use pull-up resistors for input pins
-        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-        HAL_GPIO_Init(COL_PORT[i], &GPIO_InitStruct);
+    // Configure columns as output
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    for (int i = 0; i < 4; i++) {
+        GPIO_InitStruct.Pin = KEYPAD_COLS[i];
+        HAL_GPIO_Init(KEYPAD_COL_PORT, &GPIO_InitStruct);
+        HAL_GPIO_WritePin(KEYPAD_COL_PORT, KEYPAD_COLS[i], GPIO_PIN_SET);
     }
 }
-char Keypad_Scan(void) {
-    for (int row = 0; row < KEYPAD_ROWS; row++) {
-        // Set the current row to LOW (drive the row)
-        HAL_GPIO_WritePin(ROW_PORT[row], ROW_PIN[row], GPIO_PIN_RESET);
 
-        // Check each column for a key press
-        for (int col = 0; col < KEYPAD_COLS; col++) {
-            // If the column reads LOW, a key has been pressed in this row and column
-            if (HAL_GPIO_ReadPin(COL_PORT[col], COL_PIN[col]) == GPIO_PIN_RESET) {
-                // Wait for key release (debouncing)
-                while (HAL_GPIO_ReadPin(COL_PORT[col], COL_PIN[col]) == GPIO_PIN_RESET);
-                return keys[row][col];  // Return the key that was pressed
+char scanKeypad() {
+    for (int col = 0; col < 4; col++) {
+        HAL_GPIO_WritePin(KEYPAD_COL_PORT, KEYPAD_COLS[col], GPIO_PIN_RESET); // Set column low
+        for (int row = 0; row < 4; row++) {
+            if (HAL_GPIO_ReadPin(KEYPAD_ROW_PORT, KEYPAD_ROWS[row]) == GPIO_PIN_RESET) {
+                HAL_Delay(50); // Debounce delay
+                while (HAL_GPIO_ReadPin(KEYPAD_ROW_PORT, KEYPAD_ROWS[row]) == GPIO_PIN_RESET); // Wait for release
+                HAL_GPIO_WritePin(KEYPAD_COL_PORT, KEYPAD_COLS[col], GPIO_PIN_SET); // Reset column high
+
+                // Debugging: Print which row and column were detected
+                printf("Row: %d, Column: %d\n", row, col);
+                return keypad[row][col];
             }
         }
-
-        // Set the current row back to HIGH (disable the row)
-        HAL_GPIO_WritePin(ROW_PORT[row], ROW_PIN[row], GPIO_PIN_SET);}
-
-    return 0;  // No key pressed
-}
-char* getInputString(void) {
-    static char input[16];  // String to store the input (maximum 16 characters)
-    static int index = 0;
-
-    // Continuously scan the keypad and add the pressed key to the input string
-    while (1) {
-        char key = Keypad_Scan();  // Get the pressed key
-
-        if (key != 0) {  // A key was pressed
-            if (index < 15) {  // Ensure input string doesn't overflow
-                input[index++] = key;
-                input[index] = '\0';  // Null-terminate the string
-            }
-
-            // Optional: break or delay to prevent multiple key registrations for the same press
-            HAL_Delay(205);  // Simple debouncing delay (200 ms)
-        }
-
-        if (index > 0 && key == '#') {  // Break on '#' key (example: end input on '#' key)
-            break;
-        }
-
-        HAL_Delay(100);  // Short delay for keypad scanning
+        HAL_GPIO_WritePin(KEYPAD_COL_PORT, KEYPAD_COLS[col], GPIO_PIN_SET); // Reset column high
     }
-
-    return input;  // Return the input string
+    return '\0';
 }
-int checkStringInCSV(const char *input) {
-    FRESULT res;
-    FIL file;
-    char line[128];  // Buffer to store a line from the file
-    UINT bytesRead;
 
-    // Open the CSV file for reading
-    res = f_open(&file, "data.csv", FA_READ);
-    if (res != FR_OK) {
-        printf("Error opening file.\n");
-        return 0;  // Return 0 if file can't be opened
-    }
-
-    // Read the file line by line
-    while (f_gets(line, sizeof(line), &file)) {
-        // Check if the input string is found in the line
-        if (strstr(line, input) != NULL) {
-            f_close(&file);
-            return 1;  // Return 1 if the string is found in the file
-        }
-    }
-
-    // Close the file and return 0 if string is not found
-    f_close(&file);
-    return 0;
-}
 
 /* USER CODE END 0 */
 
@@ -172,7 +97,6 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -181,44 +105,33 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-
   /* USER CODE END Init */
 
   /* Configure the system clock */
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
-
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_USART2_UART_Init();
-  MX_USB_HOST_Init();
-  MX_FATFS_Init();
-  Keypad_Init();
   /* USER CODE BEGIN 2 */
-
+  setupKeypad();
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1) {
-          // Get the input string from the keypad
-          char *input = getInputString();
-
-          // Check if the string exists in the CSV file
-          if (checkStringInCSV(input)) {
-              printf("String found in CSV file: %s\n", input);
-          } else {
-              printf("String not found in CSV file: %s\n", input);
-              // Optionally, you can add the string to the CSV file if not found
-              writeStringToCSV(input);
-          }
-
-          HAL_Delay(1000);  // Wait for 1 second before reading input again
-      }
+	  char key = scanKeypad();
+	  if (key != '\0') {
+		  printf("Key pressed: %c\n", key);
+	  }
   }
+    /* USER CODE END WHILE */
+
+    /* USER CODE BEGIN 3 */
+  /* USER CODE END 3 */
+}
 
 /**
   * @brief System Clock Configuration
@@ -267,39 +180,6 @@ void SystemClock_Config(void)
 }
 
 /**
-  * @brief USART2 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_USART2_UART_Init(void)
-{
-
-  /* USER CODE BEGIN USART2_Init 0 */
-
-  /* USER CODE END USART2_Init 0 */
-
-  /* USER CODE BEGIN USART2_Init 1 */
-
-  /* USER CODE END USART2_Init 1 */
-  huart2.Instance = USART2;
-  huart2.Init.BaudRate = 115200;
-  huart2.Init.WordLength = UART_WORDLENGTH_8B;
-  huart2.Init.StopBits = UART_STOPBITS_1;
-  huart2.Init.Parity = UART_PARITY_NONE;
-  huart2.Init.Mode = UART_MODE_TX_RX;
-  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
-  if (HAL_UART_Init(&huart2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN USART2_Init 2 */
-
-  /* USER CODE END USART2_Init 2 */
-
-}
-
-/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -308,51 +188,44 @@ static void MX_GPIO_Init(void)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
 /* USER CODE BEGIN MX_GPIO_Init_1 */
+
 /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOC_CLK_ENABLE();
-  __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
-  __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4|GPIO_PIN_5|GPIO_PIN_6|GPIO_PIN_7, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin : B1_Pin */
-  GPIO_InitStruct.Pin = B1_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : LD2_Pin */
-  GPIO_InitStruct.Pin = LD2_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : PB8 */
-  GPIO_InitStruct.Pin = GPIO_PIN_8;
+  /*Configure GPIO pins : PA0 PA1 PA8 PA9 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_8|GPIO_PIN_9;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : PB9 */
-  GPIO_InitStruct.Pin = GPIO_PIN_9;
+  /*Configure GPIO pins : PA4 PA5 PA6 PA7 */
+  GPIO_InitStruct.Pin = GPIO_PIN_4|GPIO_PIN_5|GPIO_PIN_6|GPIO_PIN_7;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
+int _write(int file, char *ptr, int len)
+{
+  (void)file;
+  int DataIdx;
+
+  for (DataIdx = 0; DataIdx < len; DataIdx++)
+  {
+    ITM_SendChar(*ptr++);
+  }
+  return len;
+}
 
 /* USER CODE END 4 */
 
@@ -363,11 +236,6 @@ static void MX_GPIO_Init(void)
 void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
-  /* User can add his own implementation to report the HAL error return state */
-  __disable_irq();
-  while (1)
-  {
-  }
   /* USER CODE END Error_Handler_Debug */
 }
 
@@ -382,8 +250,6 @@ void Error_Handler(void)
 void assert_failed(uint8_t *file, uint32_t line)
 {
   /* USER CODE BEGIN 6 */
-  /* User can add his own implementation to report the file name and line number,
-     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */
