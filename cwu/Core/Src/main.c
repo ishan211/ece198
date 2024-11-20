@@ -123,7 +123,7 @@ char* getInputString(void) {
             }
 
             // Optional: break or delay to prevent multiple key registrations for the same press
-            HAL_Delay(201);  // Simple debouncing delay (200 ms)
+            HAL_Delay(202);  // Simple debouncing delay (200 ms)
         }
 
         if (index > 0 && key == '#') {  // Break on '#' key (example: end input on '#' key)
