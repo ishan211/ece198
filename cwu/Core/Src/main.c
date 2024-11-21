@@ -7,6 +7,7 @@
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
 #include "stm32f4xx_hal.h"
+#include <string.h>
 
 extern I2C_HandleTypeDef hi2c1;
 #define SLAVE_ADDRESS_LCD 0x4E
@@ -212,6 +213,8 @@ int main(void)
   lcd_send_cmd(0x80|0x0B);
 
   int count = 0;
+  char numbers[8];
+  char password[8] = {'1', '2', '3', '4', '5', '6', '7', '8'};
 
   while (1) {
 	  char key = scanKeypad();
@@ -232,14 +235,24 @@ int main(void)
 			  lcd_send_string(".");
 			  HAL_Delay(1000);
 
+			  if (!memcmp(numbers, password, sizeof(numbers))) {
+				  lcd_send_cmd(0x80|0x54);
+				  lcd_send_string("WELCOME!");
+				  HAL_Delay(1000);
+			  }
+
 			  reset();
 			  lcd_send_cmd(0x80|0x0B);
 			  count = 0;
 		  } else {
 			  if (count < 8) {
-				  count++;
 				  //printf("Key pressed: %c\n", key);
-				  lcd_send_string(&key);
+				  char str[20];
+				  str[0] = key;
+				  str[1] = '\0';
+				  lcd_send_string(str);
+				  numbers[count] = key;
+				  count++;
 				  HAL_Delay(350);
 			  }
 		  }
