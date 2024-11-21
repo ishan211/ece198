@@ -211,20 +211,37 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   lcd_send_cmd(0x80|0x0B);
 
+  int count = 0;
+
   while (1) {
 	  char key = scanKeypad();
 	  if (key != '\0') {
 		  if (key == '#') {
 			  reset();
 			  lcd_send_cmd(0x80|0x0B);
+			  count = 0;
 		  }
 		  else if (key == '*') {
 			  lcd_send_cmd(0x80|0x54);
-			  lcd_send_string("COMPLETE");
+			  lcd_send_string("WAIT");
+			  HAL_Delay(1000);
+			  lcd_send_string(".");
+			  HAL_Delay(1000);
+			  lcd_send_string(".");
+			  HAL_Delay(1000);
+			  lcd_send_string(".");
+			  HAL_Delay(1000);
+
+			  reset();
+			  lcd_send_cmd(0x80|0x0B);
+			  count = 0;
 		  } else {
-			  //printf("Key pressed: %c\n", key);
-			  lcd_send_string(&key);
-			  HAL_Delay(350);
+			  if (count < 8) {
+				  count++;
+				  //printf("Key pressed: %c\n", key);
+				  lcd_send_string(&key);
+				  HAL_Delay(350);
+			  }
 		  }
 	  }
   }
