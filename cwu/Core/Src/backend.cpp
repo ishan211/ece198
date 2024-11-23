@@ -267,7 +267,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
     }
     else if (rxData==89) // Ascii value of 'Y' is 89 (Y for YES)
     {
-    	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, 1);
+    	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, 1); //change this to make servo move 90 degrees
     }
     HAL_UART_Receive_IT(&huart1,&rxData,1); // Enabling interrupt receive again
   }
