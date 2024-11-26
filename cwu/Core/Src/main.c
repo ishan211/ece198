@@ -250,7 +250,7 @@ int main(void)
 				  char str[20];
 				  str[0] = key;
 				  str[1] = '\0';
-				  lcd_send_string(str);
+				  lcd_send_string(str); //stores in array instead of csv file
 				  numbers[count] = key;
 				  count++;
 				  HAL_Delay(350);
