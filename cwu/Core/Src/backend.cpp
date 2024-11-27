@@ -105,7 +105,8 @@ int main(void)
 	  {
 		  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, 1);
 		   htim2.Instance -> CCR2 = 2400;
-
+		   HAL_Delay(5000); //waits 5 seconds
+		   htim2.Instance -> CCR2 = 400; //moves back to original locked position
 		   HAL_Delay(1000);
 	  }
 	HAL_Delay(200);
